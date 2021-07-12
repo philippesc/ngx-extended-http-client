@@ -15,7 +15,7 @@ export class AppComponent {
     console.log(event);
     if (event.target.files[0]) {
       this.extendedHttpClient
-        .uploadFileWithMultipartPixed('/test-123', event.target.files[0])
+        .uploadFileWithMultipartMixed('/test-123', event.target.files[0])
         .subscribe((result) => console.log(result));
     }
   }

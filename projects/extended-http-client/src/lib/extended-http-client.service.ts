@@ -6,7 +6,7 @@ import { Observable, Subscriber } from 'rxjs';
 export class ExtendedHttpClientService {
   constructor(private httpClient: HttpClient) {}
 
-  uploadFileWithMultipartPixed<T>(url: string, file: File): Observable<T> {
+  uploadFileWithMultipartMixed<T>(url: string, file: File): Observable<T> {
     return new Observable((subscriber) =>
       this.readFileAsObservable(subscriber, file, url)
     );
