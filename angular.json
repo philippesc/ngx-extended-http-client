@@ -105,6 +105,37 @@
           }
         }
       }
+    },
+    "extended-http-client": {
+      "projectType": "library",
+      "root": "projects/extended-http-client",
+      "sourceRoot": "projects/extended-http-client/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/extended-http-client/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/extended-http-client/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/extended-http-client/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "main": "projects/extended-http-client/src/test.ts",
+            "tsConfig": "projects/extended-http-client/tsconfig.spec.json",
+            "karmaConfig": "projects/extended-http-client/karma.conf.js"
+          }
+        }
+      }
     }
   },
   "defaultProject": "ExtendedHttpClient"
