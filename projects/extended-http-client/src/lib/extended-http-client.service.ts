@@ -6,21 +6,26 @@ import { Observable, Subscriber } from 'rxjs';
 export class ExtendedHttpClientService {
   constructor(private httpClient: HttpClient) {}
 
-  uploadFileWithMultipartMixed<T>(url: string, file: File): Observable<T> {
+  uploadFileWithMultipartMixed<T>(
+    url: string,
+    file: File,
+    partName: string
+  ): Observable<T> {
     return new Observable((subscriber) =>
-      this.readFileAsObservable(subscriber, file, url)
+      this.readFileAsObservable(subscriber, file, url, partName)
     );
   }
 
   private readFileAsObservable<T>(
     subscriber: Subscriber<T>,
     file: File,
-    url: string
+    url: string,
+    partName: string
   ) {
     const reader = new FileReader();
 
     reader.onloadend = () =>
-      this.continueWithReadFile<T>(subscriber, reader, file, url);
+      this.continueWithReadFile<T>(subscriber, reader, file, url, partName);
 
     reader.readAsArrayBuffer(file);
   }
@@ -29,14 +34,15 @@ export class ExtendedHttpClientService {
     subscriber: Subscriber<T>,
     reader: FileReader,
     file: File,
-    url: string
+    url: string,
+    partName: string
   ) {
     const fileContents = reader.result;
 
     const boundary = this.getBoundary();
     const header = this.getHeader(boundary);
     const footer = this.getFooter(boundary);
-    const contents = this.getContents(file, header);
+    const contents = this.getContents(file, header, partName);
 
     if (!fileContents) {
       console.error('Could not read file.');
@@ -70,12 +76,14 @@ export class ExtendedHttpClientService {
     return '\r\n--' + boundary + '--\r\n';
   }
 
-  private getContents(file: File, header: string): string {
+  private getContents(file: File, header: string, partName: string): string {
     let contents;
 
     contents =
       header +
-      'Content-Disposition: form-data; name="params"; filename="' +
+      'Content-Disposition: form-data; name="' +
+      partName +
+      '"; filename="' +
       file.name +
       '"\r\n';
     contents += 'Content-Transfer-Encoding: binary\r\n';
