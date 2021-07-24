@@ -1,61 +1,76 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, Subscriber } from 'rxjs';
+import { forkJoin, Observable } from 'rxjs';
+import { concatMap, map } from 'rxjs/operators';
+import { Files } from './files';
 
 @Injectable()
 export class ExtendedHttpClientService {
   constructor(private httpClient: HttpClient) {}
 
-  uploadFileWithMultipartMixed<T>(
-    url: string,
-    file: File,
-    partName: string
-  ): Observable<T> {
-    return new Observable((subscriber) =>
-      this.readFileAsObservable(subscriber, file, url, partName)
+  uploadFilesWithMultipartMixed<T>(url: string, files: Files): Observable<T> {
+    const readFiles$: Observable<
+      {
+        result: string | ArrayBuffer | null;
+        file: File;
+        partName: string;
+      }[]
+    > = forkJoin(
+      Object.keys(files).map((key) =>
+        this.readFile(files[key]).pipe(
+          map((result) => ({
+            result,
+            file: files[key],
+            partName: key,
+          }))
+        )
+      )
+    );
+
+    return readFiles$.pipe(
+      map((files) => files.filter((file) => file?.result != null)),
+      map((readFiles) => {
+        const boundary = this.getBoundary();
+
+        const blobParts: BlobPart[] = new Array();
+
+        readFiles.forEach((file) => {
+          const fileBlobParts = this.getFileBlobPart(
+            boundary,
+            file.file,
+            file.partName,
+            file.result as string | ArrayBuffer
+          );
+          blobParts.push(fileBlobParts.part, fileBlobParts.fileContent, '\r\n');
+        });
+
+        return {
+          boundary,
+          payload: new Blob([...blobParts, '\r\n--' + boundary + '--\r\n']),
+        };
+      }),
+      concatMap((dataToSendRequestWith) =>
+        this.httpClient.post<T>(url, dataToSendRequestWith.payload, {
+          headers: {
+            'Content-Type':
+              'multipart/mixed; boundary=' + dataToSendRequestWith.boundary,
+          },
+        })
+      )
     );
   }
 
-  private readFileAsObservable<T>(
-    subscriber: Subscriber<T>,
-    file: File,
-    url: string,
-    partName: string
-  ) {
-    const reader = new FileReader();
+  private readFile(file: File): Observable<string | ArrayBuffer | null> {
+    return new Observable((subscriber) => {
+      const reader = new FileReader();
 
-    reader.onloadend = () =>
-      this.continueWithReadFile<T>(subscriber, reader, file, url, partName);
+      reader.onloadend = () => {
+        subscriber.next(reader.result);
+        subscriber.complete();
+      };
 
-    reader.readAsArrayBuffer(file);
-  }
-
-  private continueWithReadFile<T>(
-    subscriber: Subscriber<T>,
-    reader: FileReader,
-    file: File,
-    url: string,
-    partName: string
-  ) {
-    const fileContents = reader.result;
-
-    const boundary = this.getBoundary();
-    const header = this.getHeader(boundary);
-    const footer = this.getFooter(boundary);
-    const contents = this.getContents(file, header, partName);
-
-    if (!fileContents) {
-      console.error('Could not read file.');
-      return;
-    }
-
-    const blob = new Blob([contents, fileContents, footer]);
-
-    this.httpClient
-      .post<T>(url, blob, {
-        headers: { 'Content-Type': 'multipart/mixed; boundary=' + boundary },
-      })
-      .subscribe(subscriber);
+      reader.readAsArrayBuffer(file);
+    });
   }
 
   private getBoundary(): string {
@@ -68,28 +83,24 @@ export class ExtendedHttpClientService {
     return boundary;
   }
 
-  private getHeader(boundary: string): string {
-    return '--' + boundary + '\r\n';
-  }
+  private getFileBlobPart(
+    boundary: string,
+    file: File,
+    partName: string,
+    readerResult: string | ArrayBuffer
+  ): {
+    part: BlobPart;
+    fileContent: BlobPart;
+  } {
+    let part = `--${boundary}\r\n`;
+    part += `Content-Disposition: form-data; name="${partName}"; filename="${file.name}"\r\n`;
+    part += 'Content-Transfer-Encoding: binary\r\n';
+    part += 'Content-Type: ' + file.type + '\r\n';
+    part += 'Content-Length: ' + file.size + '\r\n\r\n';
 
-  private getFooter(boundary: string): string {
-    return '\r\n--' + boundary + '--\r\n';
-  }
-
-  private getContents(file: File, header: string, partName: string): string {
-    let contents;
-
-    contents =
-      header +
-      'Content-Disposition: form-data; name="' +
-      partName +
-      '"; filename="' +
-      file.name +
-      '"\r\n';
-    contents += 'Content-Transfer-Encoding: binary\r\n';
-    contents += 'Content-Type: ' + file.type + '\r\n';
-    contents += 'Content-Length: ' + file.size + '\r\n\r\n';
-
-    return contents;
+    return {
+      part,
+      fileContent: readerResult,
+    };
   }
 }
