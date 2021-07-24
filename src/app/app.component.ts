@@ -7,16 +7,42 @@ import { ExtendedHttpClientService } from 'projects/extended-http-client/src/pub
   styleUrls: ['./app.component.scss'],
 })
 export class AppComponent {
-  title = 'ExtendedHttpClient';
+  multiparts: {
+    name: string;
+    file: File | undefined;
+  }[] = [
+    {
+      name: 'params',
+      file: undefined,
+    },
+  ];
+
+  url = '';
 
   constructor(private extendedHttpClient: ExtendedHttpClientService) {}
 
-  test(event: any) {
-    console.log(event);
+  onFileSelected(partName: string, event: any) {
     if (event.target.files[0]) {
-      this.extendedHttpClient
-        .uploadFileWithMultipartMixed('/test-123', event.target.files[0])
-        .subscribe((result) => console.log(result));
+      const index = this.multiparts.findIndex(
+        (multipart) => multipart.name === partName
+      );
+      this.multiparts[index].file = event.target.files[0];
     }
+  }
+
+  send() {
+    this.extendedHttpClient
+      .uploadFilesWithMultipartMixed(
+        this.url,
+        this.multiparts.reduce((a, x) => ({ ...a, [x.name]: x.file }), {})
+      )
+      .subscribe((result) => console.log(result));
+  }
+
+  addPart() {
+    this.multiparts.push({
+      name: '',
+      file: undefined,
+    });
   }
 }

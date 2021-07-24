@@ -1,8 +1,18 @@
-<input
-  #fileinput
-  type="file"
-  data-test="validator-file-input"
-  (change)="test($event)"
-  multiple="false"
-/>
-<button type="button" (click)="fileinput.click()">Datei auswählen...</button>
+<p>
+  URL:
+  <input type="text" [(ngModel)]="url" />
+</p>
+
+<p *ngFor="let multipart of multiparts">
+  <input [(ngModel)]="multipart.name" />
+  <input
+    #fileinput
+    type="file"
+    (change)="onFileSelected(multipart.name, $event)"
+    multiple="false"
+  />
+</p>
+
+<button type="button" (click)="addPart()">add part</button>
+
+<button type="button" (click)="send()">send</button>
